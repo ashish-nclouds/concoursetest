@@ -1,0 +1,57 @@
+
+# RESOURCES
+resources:
+- name: concoursetest
+  type: git
+  icon: github
+  source:
+    uri: ((test-git-uri))
+    branch: master
+    access_token: ((github-access-token))
+
+- name: docker-repository
+  type: reegistry-image
+  icon: docker
+  source:
+    repository: ((docker-repository))/simple-image
+    username: ((docker-username))
+    password: ((docker-password))
+
+# JOBS
+jobs:
+- name: build
+  plan:
+  - get: concoursetest
+  - task: build-task-image
+    privileged: true
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: concourse/oci-build-task
+      inputs:
+      - name: concoursetest
+      outputs:
+      - name: image
+      params:
+        CONTEXT: concoursetest/Dockerfiles/example
+        #UNPACK_ROOTFS: "true"
+      run: 
+        path: build
+  - put: docker-repository
+    params:
+      image: image/image.tar
+
+  on_success:
+    do:
+    - put: docker-repository
+      params:
+        path: concoursetest
+        status: success
+  on_failure:
+    do:
+    - put: docker-repository
+      params:
+        path: concoursetest
+        status: failure
